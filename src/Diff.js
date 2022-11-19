@@ -7,20 +7,10 @@ import * as WordSplitter from './WordSplitter';
 import * as Utils from './Utils';
 
 // This value defines balance between speed and memory utilization. The higher it is the faster it works and more memory consumes.
-const MatchGranuarityMaximum = 4;
+const MatchGranuarityMaximum = 8;
 
 const specialCaseClosingTags = new Map([
-    ['</strong>', 0],
-    ['</em>', 0],
-    ['</b>', 0],
-    ['</i>', 0],
-    ['</big>', 0],
-    ['</small>', 0],
-    ['</u>', 0],
-    ['</sub>', 0],
-    ['</strike>', 0],
-    ['</s>', 0],
-    ['</dfn>', 0],
+    
 ]);
 
 const specialCaseOpeningTagRegex = /<((strong)|(b)|(i)|(dfn)|(em)|(big)|(small)|(u)|(sub)|(sup)|(strike)|(s))[\>\s]+/ig;
