@@ -2779,7 +2779,7 @@ Object.defineProperty(exports, "__esModule", {
 var tagRegex = /^\s*<\/?[^>]+>\s*$/;
 var tagWordRegex = /<[^\s>]+/;
 var whitespaceRegex = /^(\s|&nbsp;)+$/;
-var wordRegex = /[\w\#@]+/;
+var wordRegex = /[\w\#@-]+/;
 
 var specialCaseWordTags = ['<img'];
 
@@ -2795,7 +2795,8 @@ function isTag(item) {
 
 function stripTagAttributes(word) {
     var tag = tagWordRegex.exec(word)[0];
-    word = tag + (word.endsWith("/>") ? "/>" : ">");
+    word = tag + ( // do not strip out the figure class or the figcaption id
+    /<figure.+?class=".*?table.*?"/.test(word) || /<figure.+?class=".*?image.*?"/.test(word) ? ' class="' + word.match(/class=".*?(table|image).*?"/)[1] + '"' : '') + (/<fig(?:ure|caption).+?id=".+?"/.test(word) ? ' id="' + word.match(/id="(.+?)"/)[1] + '"' : '') + (word.endsWith("/>") ? "/>" : ">");
     return word;
 }
 
@@ -9234,9 +9235,9 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 // This value defines balance between speed and memory utilization. The higher it is the faster it works and more memory consumes.
-var MatchGranuarityMaximum = 4;
+var MatchGranuarityMaximum = 10;
 
-var specialCaseClosingTags = new Map([['</strong>', 0], ['</em>', 0], ['</b>', 0], ['</i>', 0], ['</big>', 0], ['</small>', 0], ['</u>', 0], ['</sub>', 0], ['</strike>', 0], ['</s>', 0], ['</dfn>', 0]]);
+var specialCaseClosingTags = new Map([]);
 
 var specialCaseOpeningTagRegex = /<((strong)|(b)|(i)|(dfn)|(em)|(big)|(small)|(u)|(sub)|(sup)|(strike)|(s))[\>\s]+/ig;
 
@@ -9382,7 +9383,9 @@ var HtmlDiff = function () {
                     this.content.push(text);
                 } else {
                     if (specialCaseOpeningTagRegex.test(words[0])) {
-                        this.specialTagDiffStack.push(words[0]);
+                        var matchedTag = words[0].match(specialCaseOpeningTagRegex);
+                        matchedTag = '<' + matchedTag[0].replace(/(<|>| )/g, '') + '>';
+                        this.specialTagDiffStack.push(matchedTag);
                         specialCaseTagInjection = '<ins class="mod">';
                         if (tag === 'del') {
                             words.shift();
@@ -9643,37 +9646,58 @@ var HtmlDiff = function () {
         key: 'matchingBlocks',
         value: function matchingBlocks() {
             var matchingBlocks = [];
-            this.findMatchingBlocks(0, this.oldWords.length, 0, this.newWords.length, matchingBlocks);
+            var oldFigureBlocks = [];
+            var newFigureBlocks = [];
+
+            // get a list of ID pairs for special handling tag blocks
+            var i = -1;
+            while ((i = this.oldWords.indexOf('<figcaption>', i + 1)) != -1) {
+                var start = i;
+                var end = this.oldWords.indexOf('</figcaption>', i + 1);
+                oldFigureBlocks.push([start, end]);
+                i = end;
+            }i = -1;
+            while ((i = this.newWords.indexOf('<figcaption>', i + 1)) != -1) {
+                var _start = i;
+                var _end = this.newWords.indexOf('</figcaption>', i + 1);
+                newFigureBlocks.push([_start, _end]);
+                i = _end;
+            }i = -1;
+
+            this.findMatchingBlocks(0, this.oldWords.length, 0, this.newWords.length, matchingBlocks, oldFigureBlocks, newFigureBlocks);
             return matchingBlocks;
         }
     }, {
         key: 'findMatchingBlocks',
-        value: function findMatchingBlocks(startInOld, endInOld, startInNew, endInNew, matchingBlocks) {
-            var match = this.findMatch(startInOld, endInOld, startInNew, endInNew);
+        value: function findMatchingBlocks(startInOld, endInOld, startInNew, endInNew, matchingBlocks, oldFigureBlocks, newFigureBlocks) {
+            var match = this.findMatch(startInOld, endInOld, startInNew, endInNew, oldFigureBlocks, newFigureBlocks);
 
             if (match !== null) {
                 if (startInOld < match.startInOld && startInNew < match.startInNew) {
-                    this.findMatchingBlocks(startInOld, match.startInOld, startInNew, match.startInNew, matchingBlocks);
+                    this.findMatchingBlocks(startInOld, match.startInOld, startInNew, match.startInNew, matchingBlocks, oldFigureBlocks, newFigureBlocks);
                 }
 
                 matchingBlocks.push(match);
 
                 if (match.endInOld < endInOld && match.endInNew < endInNew) {
-                    this.findMatchingBlocks(match.endInOld, endInOld, match.endInNew, endInNew, matchingBlocks);
+                    this.findMatchingBlocks(match.endInOld, endInOld, match.endInNew, endInNew, matchingBlocks, oldFigureBlocks, newFigureBlocks);
                 }
             }
         }
     }, {
         key: 'findMatch',
-        value: function findMatch(startInOld, endInOld, startInNew, endInNew) {
+        value: function findMatch(startInOld, endInOld, startInNew, endInNew, oldFigureBlocks, newFigureBlocks) {
             for (var i = this.matchGranularity; i > 0; i--) {
                 var options = new _MatchOptions2.default();
                 options.blockSize = i;
                 options.repeatingWordsAccuracy = this.repeatingWordsAccuracy;
                 options.ignoreWhitespaceDifferences = this.ignoreWhiteSpaceDifferences;
+                options.oldFigureBlocks = oldFigureBlocks;
+                options.newFigureBlocks = newFigureBlocks;
 
                 var finder = new _MatchFinder2.default(this.oldWords, this.newWords, startInOld, endInOld, startInNew, endInNew, options);
                 var match = finder.findMatch();
+
                 if (match !== null) {
                     return match;
                 }
@@ -9809,6 +9833,8 @@ var MatchFinder = function () {
     }, {
         key: 'findMatch',
         value: function findMatch() {
+            var _this = this;
+
             this.indexNewWords();
             this.removeRepeatingWords();
 
@@ -9824,37 +9850,59 @@ var MatchFinder = function () {
             var blockSize = this.options.blockSize;
             var block = [];
 
-            for (var indexInOld = this.startInOld; indexInOld < this.endInOld; indexInOld++) {
-                var word = this.normalizeForIndex(this.oldWords[indexInOld]);
+            var _loop = function _loop(indexInOld) {
+                var word = _this.normalizeForIndex(_this.oldWords[indexInOld]);
                 var index = putNewWord(block, word, blockSize);
 
                 if (index === null) {
-                    continue;
+                    return 'continue';
                 }
 
                 var newMatchLengthAt = new Map();
 
-                if (!this.wordIndices.has(index)) {
+                if (!_this.wordIndices.has(index)) {
                     matchLengthAt = newMatchLengthAt;
-                    continue;
+                    return 'continue';
                 }
+
+                var _loop2 = function _loop2(indexInNew) {
+                    var newMatchLength = (matchLengthAt.has(indexInNew - 1) ? matchLengthAt.get(indexInNew - 1) : 0) + 1;
+                    newMatchLengthAt.set(indexInNew, newMatchLength);
+
+                    if (newMatchLength > bestMatchSize) {
+                        var oldInBlock = false;
+                        var newInBlock = false;
+                        _this.options.oldFigureBlocks.forEach(function (block, i) {
+                            if (indexInOld >= block[0] && indexInOld <= block[1]) {
+                                oldInBlock = true;
+                            }
+                        });
+                        _this.options.newFigureBlocks.forEach(function (block, i) {
+                            if (indexInNew >= block[0] && indexInNew <= block[1]) {
+                                newInBlock = true;
+                            }
+                        });
+
+                        // only consider best match if the old text and the new text BOTH are/are not in a special handling tag blocks
+                        // we don't want to match text in a figcaption tag to text *not* in a figcaption tag
+                        // it corrupts the HTML, among other undesired impacts
+                        if (oldInBlock == newInBlock) {
+                            bestMatchInOld = indexInOld - newMatchLength - blockSize + 2;
+                            bestMatchInNew = indexInNew - newMatchLength - blockSize + 2;
+                            bestMatchSize = newMatchLength;
+                        }
+                    }
+                };
 
                 var _iteratorNormalCompletion = true;
                 var _didIteratorError = false;
                 var _iteratorError = undefined;
 
                 try {
-                    for (var _iterator = this.wordIndices.get(index)[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                    for (var _iterator = _this.wordIndices.get(index)[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
                         var indexInNew = _step.value;
 
-                        var newMatchLength = (matchLengthAt.has(indexInNew - 1) ? matchLengthAt.get(indexInNew - 1) : 0) + 1;
-                        newMatchLengthAt.set(indexInNew, newMatchLength);
-
-                        if (newMatchLength > bestMatchSize) {
-                            bestMatchInOld = indexInOld - newMatchLength - blockSize + 2;
-                            bestMatchInNew = indexInNew - newMatchLength - blockSize + 2;
-                            bestMatchSize = newMatchLength;
-                        }
+                        _loop2(indexInNew);
                     }
                 } catch (err) {
                     _didIteratorError = true;
@@ -9872,6 +9920,12 @@ var MatchFinder = function () {
                 }
 
                 matchLengthAt = newMatchLengthAt;
+            };
+
+            for (var indexInOld = this.startInOld; indexInOld < this.endInOld; indexInOld++) {
+                var _ret = _loop(indexInOld);
+
+                if (_ret === 'continue') continue;
             }
 
             return bestMatchSize !== 0 ? new _Match2.default(bestMatchInOld, bestMatchInNew, bestMatchSize + blockSize - 1) : null;

@@ -6,6 +6,7 @@
   "author": "Jordan Hitch",
   "license": "ISC",
   "scripts": {
+    "start": "set NODE_OPTIONS=--openssl-legacy-provider && npm run build",
     "build": "webpack --mode production"
   },
   "repository": {
