@@ -4,7 +4,7 @@ const whitespaceRegex = /^(\s|&nbsp;)+$/;
 const wordRegex = /[\w\#@-]+/;
 
 const specialCaseWordTags = [
-    '<img',
+    '<img'
 ];
 
 function isTag(item) {
@@ -17,7 +17,10 @@ function isTag(item) {
 
 function stripTagAttributes(word) {
     let tag = tagWordRegex.exec(word)[0];
-    word = tag + (word.endsWith("/>") ? "/>" : ">");
+    word = tag + // do not strip out the figure class or the figcaption id
+        (/<figure.+?class=".*?table.*?"/.test(word) || /<figure.+?class=".*?image.*?"/.test(word) ? ' class="' + word.match(/class=".*?(table|image).*?"/)[1] + '"' : '') + 
+        (/<fig(?:ure|caption).+?id=".+?"/.test(word) ? ' id="' + word.match(/id="(.+?)"/)[1] + '"' : '') + 
+        (word.endsWith("/>") ? "/>" : ">");
     return word;
 }
 
