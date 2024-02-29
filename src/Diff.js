@@ -7,7 +7,7 @@ import * as WordSplitter from './WordSplitter';
 import * as Utils from './Utils';
 
 // This value defines balance between speed and memory utilization. The higher it is the faster it works and more memory consumes.
-const MatchGranuarityMaximum = 8;
+const MatchGranuarityMaximum = 10;
 
 const specialCaseClosingTags = new Map([
     
@@ -266,35 +266,56 @@ class HtmlDiff {
 
     matchingBlocks() {
         let matchingBlocks = [];
-        this.findMatchingBlocks(0, this.oldWords.length, 0, this.newWords.length, matchingBlocks);
+        let oldFigureBlocks = [];
+        let newFigureBlocks = [];
+
+        // get a list of ID pairs for special handling tag blocks
+        var i = -1;
+        while ((i = this.oldWords.indexOf('<figcaption>', i+1)) != -1){
+            let start = i;
+            let end = this.oldWords.indexOf('</figcaption>', i+1);
+            oldFigureBlocks.push([start, end]);
+            i = end;
+        } i = -1;
+        while ((i = this.newWords.indexOf('<figcaption>', i+1)) != -1){
+            let start = i;
+            let end = this.newWords.indexOf('</figcaption>', i+1);
+            newFigureBlocks.push([start, end]);
+            i = end;
+        } i = -1;
+
+        this.findMatchingBlocks(0, this.oldWords.length, 0, this.newWords.length, matchingBlocks, oldFigureBlocks, newFigureBlocks);
         return matchingBlocks;
     }
 
-    findMatchingBlocks(startInOld, endInOld, startInNew, endInNew, matchingBlocks) {
-        let match = this.findMatch(startInOld, endInOld, startInNew, endInNew);
+    findMatchingBlocks(startInOld, endInOld, startInNew, endInNew, matchingBlocks, oldFigureBlocks, newFigureBlocks) {
+        let match = this.findMatch(startInOld, endInOld, startInNew, endInNew, oldFigureBlocks, newFigureBlocks);
 
         if (match !== null) {
             if (startInOld < match.startInOld && startInNew < match.startInNew) {
-                this.findMatchingBlocks(startInOld, match.startInOld, startInNew, match.startInNew, matchingBlocks);
+                this.findMatchingBlocks(startInOld, match.startInOld, startInNew, match.startInNew, matchingBlocks, oldFigureBlocks, newFigureBlocks);
             }
 
             matchingBlocks.push(match);
 
             if (match.endInOld < endInOld && match.endInNew < endInNew) {
-                this.findMatchingBlocks(match.endInOld, endInOld, match.endInNew, endInNew, matchingBlocks);
+                this.findMatchingBlocks(match.endInOld, endInOld, match.endInNew, endInNew, matchingBlocks, oldFigureBlocks, newFigureBlocks);
             }
         }
     }
 
-    findMatch(startInOld, endInOld, startInNew, endInNew) {
+    findMatch(startInOld, endInOld, startInNew, endInNew, oldFigureBlocks, newFigureBlocks) {
         for (let i = this.matchGranularity; i > 0; i--) {
             let options = new MatchOptions();
             options.blockSize = i;
             options.repeatingWordsAccuracy = this.repeatingWordsAccuracy;
             options.ignoreWhitespaceDifferences = this.ignoreWhiteSpaceDifferences;
+            options.oldFigureBlocks = oldFigureBlocks;
+            options.newFigureBlocks = newFigureBlocks;
 
             let finder = new MatchFinder(this.oldWords, this.newWords, startInOld, endInOld, startInNew, endInNew, options);
             let match = finder.findMatch();
+
             if (match !== null) {
                 return match;
             }

@@ -94,9 +94,27 @@ export default class MatchFinder {
                 newMatchLengthAt.set(indexInNew, newMatchLength);
 
                 if (newMatchLength > bestMatchSize) {
-                    bestMatchInOld = indexInOld - newMatchLength - blockSize + 2;
-                    bestMatchInNew = indexInNew - newMatchLength - blockSize + 2;
-                    bestMatchSize = newMatchLength;
+                    let oldInBlock = false;
+                    let newInBlock = false;
+                    this.options.oldFigureBlocks.forEach((block, i) => {
+                        if (indexInOld >= block[0] && indexInOld <= block[1]) {
+                            oldInBlock = true;
+                        }
+                    });
+                    this.options.newFigureBlocks.forEach((block, i) => {
+                        if (indexInNew >= block[0] && indexInNew <= block[1]) {
+                            newInBlock = true;
+                        }
+                    });
+
+                    // only consider best match if the old text and the new text BOTH are/are not in a special handling tag blocks
+                    // we don't want to match text in a figcaption tag to text *not* in a figcaption tag
+                    // it corrupts the HTML, among other undesired impacts
+                    if (oldInBlock == newInBlock) {
+                        bestMatchInOld = indexInOld - newMatchLength - blockSize + 2;
+                        bestMatchInNew = indexInNew - newMatchLength - blockSize + 2;
+                        bestMatchSize = newMatchLength;
+                    }
                 }
             }
 
