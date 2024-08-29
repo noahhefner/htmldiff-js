@@ -37,9 +37,6 @@ class HtmlDiff {
             return this.newText;
         }
 
-        console.log(this.oldText);
-        console.log(this.newText);
-
         this.splitInputsIntoWords();
 
         this.matchGranularity = Math.min(MatchGranuarityMaximum, this.oldWords.length, this.newWords.length);
@@ -205,8 +202,6 @@ class HtmlDiff {
             let matchStartsAtCurrentPositionInOld = positionInOld === match.startInOld;
             let matchStartsAtCurrentPositionInNew = positionInNew === match.startInNew;
 
-            console.log("performing operation");
-
             let action;
 
             if (!matchStartsAtCurrentPositionInOld && !matchStartsAtCurrentPositionInNew) {
@@ -331,7 +326,6 @@ class HtmlDiff {
 }
 
 HtmlDiff.execute = function (oldText, newText) {
-    console.log("executing");
     return new HtmlDiff(oldText, newText).build();
 };
 
