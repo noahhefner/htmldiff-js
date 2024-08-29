@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Diff Test</title>
+    <style>
+        ins {
+            background-color: green;
+        }
+        del {
+            background-color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="bundle.js"></script>
+    <script>
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+
+            let oldHtml = document.getElementById('oldHtml');
+            let newHtml = document.getElementById('newHtml');
+            let diffHtml = document.getElementById('diffHtml');
+
+            diffHtml.innerHTML = HtmlDiff.execute(oldHtml.innerHTML, newHtml.innerHTML);
+
+        });
+
+    </script>
+    <div id="oldHtml">
+        <p>Some <em>old</em> html here</p>
+    </div>
+
+    <div id="newHtml">
+        <p>Some <b>new</b> html goes here</p>
+    </div>
+
+    <div id="diffHtml">
+    </div>
+</body>
+
+</html>
